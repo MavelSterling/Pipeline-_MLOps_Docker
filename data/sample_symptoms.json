@@ -1,0 +1,127 @@
+{
+  "sample_cases": [
+    {
+      "case_id": "CASE_001",
+      "description": "Paciente con síntomas de resfriado común",
+      "symptoms": {
+        "fiebre": 6,
+        "dolor_cabeza": 4,
+        "congestion_nasal": 8,
+        "dolor_garganta": 7,
+        "tos": 5,
+        "fatiga": 3
+      },
+      "expected_diagnosis": "ENFERMEDAD_LEVE"
+    },
+    {
+      "case_id": "CASE_002", 
+      "description": "Paciente con síntomas de migraña",
+      "symptoms": {
+        "dolor_cabeza": 9,
+        "nausea": 6,
+        "mareos": 5,
+        "cambios_vision": 4,
+        "fatiga": 3
+      },
+      "expected_diagnosis": "ENFERMEDAD_LEVE"
+    },
+    {
+      "case_id": "CASE_003",
+      "description": "Paciente con síntomas de emergencia cardíaca",
+      "symptoms": {
+        "dolor_pecho": 10,
+        "dificultad_respirar": 9,
+        "mareos": 7,
+        "nausea": 6,
+        "fatiga": 8
+      },
+      "expected_diagnosis": "ENFERMEDAD_AGUDA"
+    },
+    {
+      "case_id": "CASE_004",
+      "description": "Paciente con síntomas de diabetes no controlada",
+      "symptoms": {
+        "perdida_peso": 8,
+        "fatiga": 9,
+        "cambios_vision": 7,
+        "dificultad_respirar": 5,
+        "nausea": 6
+      },
+      "expected_diagnosis": "ENFERMEDAD_CRONICA"
+    },
+    {
+      "case_id": "CASE_005",
+      "description": "Paciente sano con síntomas mínimos",
+      "symptoms": {
+        "fatiga": 2,
+        "dolor_muscular": 1,
+        "mareos": 1
+      },
+      "expected_diagnosis": "NO_ENFERMO"
+    },
+    {
+      "case_id": "CASE_006",
+      "description": "Paciente con síntomas de gastroenteritis",
+      "symptoms": {
+        "nausea": 8,
+        "dolor_abdominal": 7,
+        "fatiga": 5,
+        "fiebre": 4
+      },
+      "expected_diagnosis": "ENFERMEDAD_LEVE"
+    },
+    {
+      "case_id": "CASE_007",
+      "description": "Paciente con síntomas neurológicos severos",
+      "symptoms": {
+        "confusion": 9,
+        "convulsiones": 8,
+        "cambios_vision": 7,
+        "dolor_cabeza": 8,
+        "mareos": 6
+      },
+      "expected_diagnosis": "ENFERMEDAD_AGUDA"
+    },
+    {
+      "case_id": "CASE_008",
+      "description": "Paciente con síntomas de artritis",
+      "symptoms": {
+        "dolor_articular": 8,
+        "dolor_muscular": 6,
+        "fatiga": 5,
+        "dolor_espalda": 4
+      },
+      "expected_diagnosis": "ENFERMEDAD_CRONICA"
+    }
+  ],
+  "symptom_descriptions": {
+    "fiebre": "Temperatura corporal elevada (>37.5°C)",
+    "dolor_cabeza": "Dolor o molestia en la cabeza",
+    "nausea": "Sensación de malestar estomacal con ganas de vomitar",
+    "fatiga": "Cansancio o debilidad generalizada",
+    "dolor_pecho": "Dolor o molestia en el área del pecho",
+    "dificultad_respirar": "Problemas para respirar normalmente",
+    "dolor_abdominal": "Dolor en el área del abdomen",
+    "mareos": "Sensación de inestabilidad o desvanecimiento",
+    "perdida_peso": "Pérdida de peso no intencional",
+    "tos": "Reflejo de tos persistente",
+    "congestion_nasal": "Obstrucción o congestión de las fosas nasales",
+    "dolor_garganta": "Dolor o irritación en la garganta",
+    "dolor_muscular": "Dolor en los músculos",
+    "dolor_articular": "Dolor en las articulaciones",
+    "erupcion_cutanea": "Cambios en la piel como sarpullido o manchas",
+    "sangrado": "Pérdida de sangre anormal",
+    "cambios_vision": "Alteraciones en la capacidad visual",
+    "confusion": "Desorientación o dificultad para pensar claramente",
+    "convulsiones": "Episodios de actividad eléctrica anormal en el cerebro",
+    "dolor_espalda": "Dolor en la región de la espalda"
+  },
+  "intensity_scale": {
+    "0": "Ausente",
+    "1-2": "Muy leve",
+    "3-4": "Leve", 
+    "5-6": "Moderado",
+    "7-8": "Severo",
+    "9-10": "Muy severo"
+  }
+}
