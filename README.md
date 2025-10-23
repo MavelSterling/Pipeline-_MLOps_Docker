@@ -21,35 +21,24 @@ Desarrollar un sistema de MLOps completo para el diagnóstico médico que sea ca
 
 ---
 
-## 📋 Estructura del Proyecto
+## 📋 Estructura del ProyectoPipeline-_MLOps_Docker/
 
-```
-Pipeline-_MLOps_Docker/
 ├── README.md                           # Este archivo
 ├── requirements.txt                    # Dependencias de Python
 ├── .gitignore                         # Archivos a excluir de Git
 ├── .venv/                             # Entorno virtual de Python
 ├── docs/                              # Documentación del pipeline
 │   ├── pipeline_design.md            # Diseño del pipeline de MLOps
-│   ├── pipeline_diagram.md           # Diagrama del proceso
-│   └── usage_instructions.md         # Instrucciones de uso
 ├── src/                              # Código fuente del servicio
 │   ├── app.py                        # Aplicación Flask principal
 │   ├── model.py                      # Función de diagnóstico médico
-│   ├── requirements.txt              # Dependencias (copia)
+│   ├── requirements.txt              # Dependencias
 │   └── templates/                    # Plantillas HTML
 │       └── index.html               # Interfaz web
-├── docker/                           # Archivos de Docker
-│   └── Dockerfile                   # Configuración de Docker
 ├── data/                            # Datos de ejemplo
 │   └── sample_symptoms.json         # Casos de prueba
 ├── Dockerfile                       # Dockerfile principal
 ├── docker-compose.yml               # Configuración Docker Compose
-├── deploy.sh                        # Script de despliegue (Linux/Mac)
-├── deploy.ps1                       # Script de despliegue (Windows)
-├── setup_dev.py                     # Script de configuración de desarrollo
-└── test_system.py                   # Script de pruebas
-```
 
 ---
 
@@ -130,8 +119,6 @@ El pipeline completo incluye las siguientes etapas:
 5. **Despliegue en Producción**
 6. **Monitoreo y Mantenimiento**
 
-Para más detalles, consulta [docs/pipeline_design.md](docs/pipeline_design.md)
-
 ---
 
 ## 🏥 Servicio de Diagnóstico
@@ -145,10 +132,21 @@ El servicio permite a los médicos ingresar síntomas del paciente y obtener un 
 
 ---
 
+## 🧪 Casos de Uso
+
+A continuación, algunos ejemplos tomados de `data/sample_symptoms.json` para ilustrar cuándo el sistema determina que un paciente está enfermo o no.
+
+- Nota: para evaluar correctamente, se deben ingresar mínimo 3 síntomas por paciente.
+- **NO ENFERMO (CASE_005)**: `fatiga=2`, `dolor_muscular=1`, `mareos=1` → Diagnóstico esperado: **NO ENFERMO**
+- **ENFERMEDAD LEVE (CASE_001)**: `fiebre=6`, `congestion_nasal=8`, `dolor_garganta=7` → Diagnóstico esperado: **ENFERMEDAD LEVE**
+- **ENFERMEDAD AGUDA (CASE_003)**: `dolor_pecho=10`, `dificultad_respirar=9`, `fatiga=8` → Diagnóstico esperado: **ENFERMEDAD AGUDA**
+- **ENFERMEDAD CRÓNICA (CASE_004)**: `perdida_peso=8`, `cambios_vision=7`, `fatiga=9` → Diagnóstico esperado: **ENFERMEDAD CRÓNICA**
+
+---
+
 ## 📖 Documentación
 
 - [Diseño del Pipeline](docs/pipeline_design.md)
-- [Instrucciones de Uso](docs/usage_instructions.md)
 
 ---
 

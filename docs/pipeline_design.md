@@ -1,6 +1,6 @@
 # Diseño del Pipeline de MLOps para Diagnóstico Médico
 
-## 🎯 Resumen Ejecutivo
+## 🎯 Descripción
 
 Este documento describe el diseño de un pipeline de MLOps completo para el diagnóstico médico, capaz de manejar tanto enfermedades comunes (con abundantes datos) como enfermedades huérfanas (con datos limitados). El sistema está diseñado para ser robusto, escalable y mantenible en un entorno de producción médico.
 
@@ -282,12 +282,3 @@ graph TB
 - **Reducción de Errores**: 25% menos diagnósticos incorrectos
 - **Tiempo de Respuesta**: 50% más rápido en emergencias
 - **Satisfacción del Paciente**: Mejora en experiencia del paciente
-
----
-
-## 🎯 Próximos Pasos
-
-1. **Fase 1**: Implementación del MVP con enfermedades comunes
-2. **Fase 2**: Integración de enfermedades huérfanas
-3. **Fase 3**: Optimización y escalamiento
-4. **Fase 4**: Expansión a múltiples especialidades médicas
