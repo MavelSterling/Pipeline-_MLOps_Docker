@@ -317,7 +317,7 @@
         <div class="main-content">
             <div class="form-section">
                 <h2>📋 Evaluación de Síntomas del Paciente</h2>
-                
+
                 <div class="intensity-scale">
                     <h4>Escala de Intensidad de Síntomas</h4>
                     <p>0 = Ausente | 5 = Moderado | 10 = Muy Severo</p>
@@ -511,19 +511,24 @@
         });
         
         function displayResults(result) {
-            const diagnosis = result.diagnosis;
-            const confidence = result.confidence;
-            const condition = result.most_likely_condition;
+            const diagnosis = result.diagnosis;                      // NO_ENFERMO / MOLESTIAS_LEVES / ENFERMEDAD_LEVE / ...
+            const confidence = result.confidence;                    // score global síntomas
+            const condition = result.most_likely_condition;          // ej "infeccion_respiratoria"
+            const showCondition = result.show_condition;             // true/false según severidad
             const recommendations = result.recommendations;
-            
-            // Determinar clase CSS basada en el diagnóstico
+
+            // Determinar clase CSS y texto visible según severidad
             let diagnosisClass = '';
             let diagnosisText = '';
-            
+
             switch(diagnosis) {
                 case 'NO_ENFERMO':
                     diagnosisClass = 'diagnosis-no-enfermo';
                     diagnosisText = '✅ NO ENFERMO';
+                    break;
+                case 'MOLESTIAS_LEVES':
+                    diagnosisClass = 'diagnosis-molestias-leves';
+                    diagnosisText = '🙂 MOLESTIAS LEVES';
                     break;
                 case 'ENFERMEDAD_LEVE':
                     diagnosisClass = 'diagnosis-leve';
@@ -543,7 +548,21 @@
             }
             
             const confidencePercent = Math.round(confidence * 100);
-            
+
+            // Bloque de condición más probable:
+            // - Sólo se muestra si show_condition === true
+            // - En caso contrario no se renderiza ese bloque
+            const conditionBlock = showCondition
+                ? `
+                    <div style="margin: 20px 0;">
+                        <h4>Condición Más Probable:</h4>
+                        <p><strong>${condition.replace(/_/g, ' ').toUpperCase()}</strong></p>
+                    </div>
+                  `
+                : '';
+
+            // Render final
+            const diagnosisResults = document.getElementById('diagnosisResults');
             diagnosisResults.innerHTML = `
                 <div class="diagnosis-card">
                     <div class="diagnosis-title ${diagnosisClass}">
@@ -556,11 +575,8 @@
                             <div class="confidence-fill" style="width: ${confidencePercent}%"></div>
                         </div>
                     </div>
-                    
-                    <div style="margin: 20px 0;">
-                        <h4>Condición Más Probable:</h4>
-                        <p><strong>${condition.replace('_', ' ').toUpperCase()}</strong></p>
-                    </div>
+
+                    ${conditionBlock}
                     
                     <div class="recommendations">
                         <h4>💡 Recomendaciones Médicas:</h4>
@@ -572,7 +588,7 @@
             `;
         }
         
-        // Validación en tiempo real
+        // Validación en tiempo real de inputs 0-10
         document.querySelectorAll('input[type="number"]').forEach(input => {
             input.addEventListener('input', function() {
                 const value = parseFloat(this.value);

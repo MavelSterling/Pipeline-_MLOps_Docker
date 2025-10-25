@@ -2,7 +2,7 @@
 
 ## 🎯 Descripción
 
-Este documento describe el diseño de un pipeline de MLOps completo para el diagnóstico médico, capaz de manejar tanto enfermedades comunes (con abundantes datos) como enfermedades huérfanas (con datos limitados). El sistema está diseñado para ser robusto, escalable y mantenible en un entorno de producción médico.
+Este documento describe el diseño de un pipeline de MLOps completo para el diagnóstico médico, capaz de manejar tanto enfermedades comunes (con abundantes datos) como enfermedades huérfanas (con datos limitados). 
 
 ---
 
@@ -52,233 +52,30 @@ graph TB
 
 ---
 
-## 🔍 1. Diseño y Análisis
+## Diseño y análisis
 
-### 1.1 Restricciones y Limitaciones
+El sistema propuesto es una plataforma de apoyo diagnóstico que recibe síntomas del paciente, estima la posible condición clínica y clasifica la severidad del caso. Desde el diseño inicial existen restricciones importantes. La primera es la privacidad, porque se trabaja con información médica sensible. Eso significa que los datos del paciente no pueden circular libremente ni almacenarse de forma insegura. El pipeline debe considerar controles de acceso, trazabilidad de quién vio qué dato y protección tanto en tránsito como en reposo. La segunda restricción es la latencia. El sistema no se usa de forma offline, sino durante la evaluación clínica. Por lo tanto, la respuesta tiene que ser prácticamente inmediata para que tenga valor, especialmente cuando los síntomas apuntan a algo potencialmente serio como dolor de pecho intenso o dificultad para respirar. La tercera restricción es interpretabilidad. Un modelo en salud no puede limitarse a responder “usted está enfermo de gravedad” sin más. El sistema tiene que ser capaz de explicar qué combinación de síntomas lo llevó a esa conclusión, porque un profesional humano va a usar la salida como apoyo y necesita poder entenderla, validarla y, si es necesario, discutirla con el paciente. Finalmente, el diseño tiene que reconocer que no todos los problemas médicos se comportan igual desde el punto de vista de datos. Hay condiciones comunes con muchos ejemplos disponibles y otras raras donde hay muy pocos datos. Eso obliga a estructurar el pipeline para que soporte ambos escenarios en lugar de asumir un único modelo universal.
 
-**Restricciones Técnicas:**
+En cuanto al tipo de información que debe procesar el sistema, hay varias clases de datos relevantes. Están los datos estructurados, como fiebre medida en grados, nivel de dolor reportado en una escala numérica o presencia e intensidad de síntomas específicos como tos, dolor abdominal o dificultad respiratoria. Esos datos son fáciles de usar directamente en los modelos porque tienen formato consistente. Existen también datos derivados de notas médicas o descripciones del paciente, que son texto libre. Ese tipo de información es menos uniforme y puede requerir procesar lenguaje natural para extraer señales útiles. Además, parte de la información clínica es temporal. No basta con saber “hay dolor en el pecho”, importa desde cuándo, si apareció de golpe o si está presente desde hace semanas, y si ha empeorado con el tiempo. Esa evolución en el tiempo también es parte del cuadro clínico y el pipeline debe estar preparado para integrarla cuando esté disponible. El diseño general deja abierta la posibilidad de incorporar más adelante modalidades extra como imágenes médicas o reportes de laboratorio, pero incluso en su forma básica ya tiene que tratar con datos heterogéneos que no vienen todos con el mismo formato ni la misma calidad.
 
-- **Privacidad de Datos**: Cumplimiento estricto con HIPAA y regulaciones de protección de datos médicos
-- **Latencia**: Respuesta en tiempo real (< 2 segundos) para diagnósticos urgentes
-- **Disponibilidad**: 99.9% de uptime para servicios críticos
-- **Escalabilidad**: Capacidad de manejar 10,000+ consultas diarias
+## Desarrollo del modelo y manejo de datos
 
-**Restricciones Médicas:**
+El pipeline de desarrollo comienza con la ingesta y la limpieza de datos clínicos. En un entorno real esa información llega de varias fuentes: registros clínicos electrónicos del hospital, reportes de laboratorio, auto reporte del paciente y eventualmente dispositivos médicos. Eso normalmente viene con formatos distintos, escalas diferentes y hasta maneras distintas de describir el mismo síntoma. Por ejemplo, un paciente puede decir “me cuesta respirar” mientras que en otro registro aparece como “disnea moderada”. Antes de entrenar cualquier modelo es obligatorio normalizar todo eso en una representación común. Este paso no es cosmético, ya que un error en la estandarización puede enseñar al modelo una correlación equivocada y eso después se traduce en malas decisiones clínicas.
 
-- **Precisión**: Sensibilidad > 95% para enfermedades agudas
-- **Especificidad**: Evitar falsos positivos que generen ansiedad
-- **Interpretabilidad**: Explicabilidad de las decisiones para médicos
-- **Validación Clínica**: Aprobación de comités médicos especializados
+Después de la limpieza se hace la separación clásica en entrenamiento, validación y prueba, con el objetivo de poder medir generalización y no solo memoria. Aquí aparece una decisión importante: el sistema no se plantea como un único modelo monolítico que lo predice todo. En su lugar, se asume que existen al menos dos familias de modelos. Por un lado, hay modelos entrenados con datos de condiciones comunes y frecuentes, como cuadros respiratorios típicos o problemas digestivos leves. Para estos casos se pueden usar clasificadores supervisados estándar, modelos en conjunto como gradient boosting o redes neuronales relativamente simples, porque hay suficientes ejemplos históricos para aprender patrones estables. Por otro lado, hay un bloque diferente enfocado en condiciones menos frecuentes o más críticas, como eventos cardiacos agudos o cuadros neurológicos serios. En esos casos no siempre hay miles de ejemplos disponibles, así que se recurre a estrategias que funcionan con pocos datos, como transferencia de aprendizaje desde modelos ya entrenados en dominios parecidos o enfoques que priorizan la presencia combinada de síntomas clave en lugar de depender solo del volumen estadístico.
 
-### 1.2 Tipos de Datos
+Entre esas dos familias de modelos se inserta una lógica de decisión que actúa como orquestador. Su trabajo no es promediar ciegamente, sino priorizar riesgo clínico. Si un modelo “leve” dice que esto parece una infección respiratoria no complicada, pero el modelo especializado en riesgo cardiopulmonar está disparando señales fuertes porque hay dolor torácico severo con dificultad respiratoria alta, el sistema no debe quedarse con el diagnóstico tranquilizador. Debe elevar la gravedad, porque desde el punto de vista clínico el peor caso manda. Ese componente de agregación es parte esencial del pipeline porque lo acerca más a cómo piensa un médico: cuando hay señales de algo potencialmente grave, se trata como grave hasta demostrar lo contrario.
 
-**Datos Estructurados:**
+La validación del sistema no se puede limitar a medir accuracy global. En salud importa mucho más qué tan bien detecta los casos que realmente requieren atención urgente y qué tanto evita alarmar sin motivo. Por eso se evalúan métricas que capturan ambas cosas. Sensibilidad alta significa que el sistema casi no deja pasar casos peligrosos etiquetándolos como leves. Especificidad razonable significa que no marca como “grave” a todo el mundo innecesariamente. Además se evalúa el comportamiento del modelo en distintos perfiles de paciente, porque un sistema clínico no puede funcionar bien solo en un subgrupo y mal en otro sin que eso se note. Finalmente, hay una capa explícita de validación humana. Antes de considerar que una versión del modelo está lista para uso clínico, profesionales médicos revisan ejemplos reales y determinan si las salidas del sistema tienen sentido clínico. Eso incluye revisar si la explicación que da el modelo es coherente, si la clasificación de severidad es prudente y si las recomendaciones son aceptables desde la práctica médica.
 
-- Signos vitales (temperatura, presión arterial, frecuencia cardíaca)
-- Resultados de laboratorio (hemograma, química sanguínea)
-- Medicamentos actuales y alergias
-- Historial médico familiar
+## Producción, monitoreo y mejora continua
 
-**Datos No Estructurados:**
+Una vez que el modelo supera la validación técnica y clínica, se despliega como un servicio. La forma práctica de hacerlo es empacar el modelo con su lógica de preprocesamiento y exponerlo mediante una API en un contenedor. Ese contenedor se puede orquestar igual que cualquier otro microservicio, lo que facilita escalar horizontalmente si aumenta el número de consultas. Este enfoque le da al hospital o a la institución un punto claro de integración: el sistema clínico le envía los síntomas estructurados del paciente y recibe de vuelta una clasificación de severidad y, cuando corresponde, una posible condición más probable. El despliegue en contenedores también facilita versionar y auditar. Se puede saber exactamente qué versión del modelo está corriendo, con qué pesos fue entrenado y con qué datos fue validado. Eso es fundamental en salud, porque en caso de auditoría se tiene que poder responder por qué se dio cierta recomendación en una fecha específica.
 
-- Notas de síntomas del paciente
-- Reportes de radiología
-- Imágenes médicas (rayos X, resonancias)
-- Transcripciones de consultas
+Cuando el sistema está en producción no basta con que esté disponible. Tiene que ser vigilado activamente. Por un lado se monitorean métricas puramente técnicas, como latencia, disponibilidad y tasa de error de la API. El sistema tiene que responder rápido y de forma estable porque se está usando en el flujo de trabajo clínico. Por otro lado se monitorean métricas clínicas, como la distribución de severidades que el sistema está emitiendo en el tiempo. Si de repente empieza a clasificar a casi todos los pacientes como casos graves, o al contrario deja de marcar casos agudos por completo, eso es señal de que algo cambió en los datos de entrada o en el contexto clínico. Ese fenómeno se conoce como drift y es inevitable en salud, porque la realidad clínica cambia. Aparecen nuevas variantes de virus, cambian los perfiles de paciente que consultan, cambian las guías médicas. El pipeline no puede asumir que el modelo de hoy sirve igual dentro de seis meses. Tiene que detectar ese desajuste y registrarlo.
 
-**Datos Temporales:**
+Ese monitoreo continuo alimenta la última fase del pipeline, que es la mejora iterativa del modelo. Cada cierto tiempo, o cuando se detecta degradación en el rendimiento clínico, se recolectan nuevos ejemplos reales, se vuelven a limpiar y normalizar, y se utilizan para reentrenar o ajustar el modelo. Ese reentrenamiento nunca se hace a ciegas. Antes de reemplazar el modelo en producción se compara la versión actual con la versión nueva en paralelo, usando datos reales recientes. Eso permite ver si el nuevo modelo realmente mejora o si introduce errores peligrosos. Solo cuando el nuevo modelo demuestra ser al menos tan seguro como el anterior y además ofrece una mejora real, se promueve a producción. Toda esta rotación debe quedar registrada de manera formal, incluyendo qué versión estaba activa, cuándo se cambió y por qué se cambió. 
 
-- Evolución de síntomas a lo largo del tiempo
-- Patrones de medicación
-- Respuesta a tratamientos previos
+## Conclusión
 
----
-
-## 🛠️ 2. Desarrollo
-
-### 2.1 Fuentes de Datos y Manejo
-
-**Fuentes Principales:**
-
-1. **Sistemas EHR (Electronic Health Records)**
-
-   - Epic, Cerner, Allscripts
-   - APIs estandarizadas (FHIR)
-   - Sincronización en tiempo real
-2. **Laboratorios Externos**
-
-   - HL7 para resultados de laboratorio
-   - Integración con sistemas LIS (Laboratory Information Systems)
-3. **Dispositivos IoT Médicos**
-
-   - Monitores de signos vitales
-   - Dispositivos de telemedicina
-   - Aplicaciones móviles de pacientes
-
-**Estrategia de Manejo de Datos:**
-
-- **Ingesta en Tiempo Real**: Apache Kafka para streaming de datos
-- **Almacenamiento**: Data Lake (AWS S3/Azure Blob) + Data Warehouse (Snowflake/BigQuery)
-- **Procesamiento**: Apache Spark para transformaciones masivas
-- **Versionado**: DVC (Data Version Control) para trazabilidad
-
-### 2.2 Tipos de Modelos de ML
-
-**Para Enfermedades Comunes (Datos Abundantes):**
-
-- **Deep Learning**: Redes neuronales profundas para patrones complejos
-- **Ensemble Methods**: Random Forest, XGBoost, LightGBM
-- **Modelos de Secuencia**: LSTM/GRU para datos temporales
-- **Modelos de Imagen**: CNN para análisis de radiografías
-
-**Para Enfermedades Huérfanas (Datos Limitados):**
-
-- **Few-Shot Learning**: Modelos que aprenden con pocos ejemplos
-- **Transfer Learning**: Aprovechar modelos pre-entrenados
-- **Meta-Learning**: MAML (Model-Agnostic Meta-Learning)
-- **Síntesis de Datos**: GANs para generar datos sintéticos
-- **Modelos de Base de Conocimiento**: Incorporar literatura médica
-
-**Modelos Híbridos:**
-
-- **Ensemble Adaptativo**: Combina modelos según disponibilidad de datos
-- **Modelos de Explicabilidad**: SHAP, LIME para interpretabilidad
-- **Modelos de Incertidumbre**: Bayesian Neural Networks
-
-### 2.3 Validación y Testing
-
-**Estrategia de Validación:**
-
-- **Validación Cruzada Temporal**: Respetando la cronología de los datos
-- **Validación por Especialidad**: Diferentes especialidades médicas
-- **Validación por Demografía**: Diferentes grupos de edad, género, etnia
-- **Validación Externa**: Datos de hospitales independientes
-
-**Métricas de Evaluación:**
-
-- **Métricas Clínicas**: Sensibilidad, Especificidad, Valor Predictivo Positivo
-- **Métricas de Calidad**: AUC-ROC, F1-Score, Precision-Recall
-- **Métricas de Equidad**: Paridad demográfica, igualdad de oportunidades
-- **Métricas de Robustez**: Resistencia a adversarios, generalización
-
-**Testing Automatizado:**
-
-- **Unit Tests**: Para funciones individuales
-- **Integration Tests**: Para flujos completos
-- **Performance Tests**: Para latencia y throughput
-- **A/B Testing**: Para comparar versiones de modelos
-
----
-
-## 🚀 3. Producción
-
-### 3.1 Despliegue de la Solución
-
-**Arquitectura de Microservicios:**
-
-- **API Gateway**: Kong o AWS API Gateway
-- **Servicios de Modelo**: Contenedores Docker independientes
-- **Base de Datos**: PostgreSQL para metadatos, Redis para caché
-- **Message Queue**: RabbitMQ para procesamiento asíncrono
-
-**Estrategia de Despliegue:**
-
-- **Blue-Green Deployment**: Para actualizaciones sin downtime
-- **Canary Releases**: Despliegue gradual a subconjuntos de usuarios
-- **Feature Flags**: Activación/desactivación de funcionalidades
-- **Rollback Automático**: En caso de degradación de performance
-
-**Infraestructura:**
-
-- **Orquestación**: Kubernetes para escalabilidad
-- **CI/CD**: GitLab CI/CD o GitHub Actions
-- **Configuración**: Helm charts para Kubernetes
-- **Secrets Management**: HashiCorp Vault o AWS Secrets Manager
-
-### 3.2 Monitoreo y Observabilidad
-
-**Monitoreo en Tiempo Real:**
-
-- **Métricas de Performance**: Latencia, throughput, error rate
-- **Métricas de Modelo**: Drift de datos, degradación de accuracy
-- **Métricas de Negocio**: Número de diagnósticos, satisfacción del usuario
-- **Alertas Inteligentes**: Basadas en umbrales adaptativos
-
-**Herramientas de Monitoreo:**
-
-- **APM**: New Relic, Datadog, o Prometheus + Grafana
-- **Logging**: ELK Stack (Elasticsearch, Logstash, Kibana)
-- **Tracing**: Jaeger o Zipkin para trazabilidad distribuida
-- **Model Monitoring**: MLflow, Weights & Biases, o custom dashboards
-
-**Dashboards Ejecutivos:**
-
-- **Dashboard Clínico**: Para médicos y personal sanitario
-- **Dashboard Técnico**: Para ingenieros de ML
-- **Dashboard de Negocio**: Para administradores hospitalarios
-
-### 3.3 Re-entrenamiento y Actualización
-
-**Estrategia de Re-entrenamiento:**
-
-- **Trigger Automático**: Basado en drift de datos o degradación de performance
-- **Re-entrenamiento Programado**: Semanal para modelos críticos
-- **Re-entrenamiento por Lotes**: Para modelos menos críticos
-- **Online Learning**: Para adaptación continua (donde sea apropiado)
-
-**Validación de Nuevos Modelos:**
-
-- **Shadow Mode**: Ejecutar nuevo modelo en paralelo sin afectar producción
-- **Champion-Challenger**: Comparar modelo actual vs nuevo modelo
-- **Validación Clínica**: Revisión por especialistas médicos
-- **A/B Testing**: Pruebas controladas con subconjuntos de pacientes
-
-**Gestión de Versiones:**
-
-- **Model Registry**: MLflow o DVC para versionado de modelos
-- **Metadata Tracking**: Parámetros, métricas, y datos de entrenamiento
-- **Lineage Tracking**: Trazabilidad completa del modelo
-- **Rollback Strategy**: Capacidad de revertir a versiones anteriores
-
----
-
-## 🔒 Consideraciones de Seguridad y Compliance
-
-### Privacidad de Datos
-
-- **Encriptación**: En tránsito (TLS 1.3) y en reposo (AES-256)
-- **Anonimización**: Técnicas de k-anonymity y differential privacy
-- **Acceso Controlado**: RBAC (Role-Based Access Control)
-- **Auditoría**: Logs completos de acceso y modificaciones
-
-### Compliance Médico
-
-- **HIPAA**: Cumplimiento estricto para datos de salud
-- **GDPR**: Para pacientes en la Unión Europea
-- **FDA**: Si el sistema se considera dispositivo médico
-- **Certificaciones**: ISO 27001, SOC 2 Type II
-
----
-
-## 📈 Métricas de Éxito
-
-### Métricas Técnicas
-
-- **Disponibilidad**: > 99.9%
-- **Latencia**: < 2 segundos para diagnósticos
-- **Precisión**: > 95% para enfermedades agudas
-- **Escalabilidad**: 10,000+ consultas diarias
-
-### Métricas de Negocio
-
-- **Adopción**: % de médicos usando el sistema
-- **Satisfacción**: NPS > 8.0
-- **Eficiencia**: Reducción del 30% en tiempo de diagnóstico
-- **ROI**: Retorno de inversión en 18 meses
-
-### Métricas Clínicas
-
-- **Detección Temprana**: 40% más diagnósticos tempranos
-- **Reducción de Errores**: 25% menos diagnósticos incorrectos
-- **Tiempo de Respuesta**: 50% más rápido en emergencias
-- **Satisfacción del Paciente**: Mejora en experiencia del paciente
+El pipeline cubre el ciclo completo. Parte desde la ingesta cruda y desordenada de datos clínicos, pasa por limpieza y normalización, entrena modelos adecuados tanto para condiciones comunes como para las menos frecuentes, combina las señales priorizando el riesgo más alto, valida técnica y clínicamente, despliega como servicio reproducible, monitorea el desempeño en tiempo real y se alimenta de vuelta para mejorar. 

@@ -38,8 +38,7 @@ Desarrollar un sistema de MLOps completo para el diagnóstico médico que sea ca
 │       └── index.html               # Interfaz web
 ├── data/                            # Datos de ejemplo
 │   └── sample_symptoms.json         # Casos de prueba
-├── Dockerfile                       # Dockerfile principal
-└── docker-compose.yml               # Configuración Docker Compose
+├── Dockerfile                       # Dockerfile 
 ```
 ---
 
@@ -48,18 +47,9 @@ Desarrollar un sistema de MLOps completo para el diagnóstico médico que sea ca
 ### Prerrequisitos
 
 - Docker instalado
-- Python 3.8+ (para desarrollo local)
+- Python 3.8+ (para ejecución sin docker)
 
-### Desarrollo Local
-
-#### Opción 1: Configuración Automática (Recomendada)
-
-```bash
-# Ejecutar script de configuración automática
-python setup_dev.py
-```
-
-#### Opción 2: Configuración Manual
+### Ejecución sin Docker
 
 1. **Crear entorno virtual:**
 
@@ -105,8 +95,6 @@ docker run -p 5000:5000 medical-diagnosis-service
 
 3. **Acceder al servicio:**
    - Interfaz web: http://localhost:5000
-   - API endpoint: http://localhost:5000/predict
-
 ---
 
 ## 📊 Pipeline de MLOps
@@ -135,13 +123,14 @@ El servicio permite a los médicos ingresar síntomas del paciente y obtener un 
 
 ## 🧪 Casos de Uso
 
-A continuación, algunos ejemplos tomados de `data/sample_symptoms.json` para ilustrar cuándo el sistema determina que un paciente está enfermo o no.
+A continuación, se muestran algunos ejemplos de casos de uso:
 
 - Nota: para evaluar correctamente, se deben ingresar mínimo 3 síntomas por paciente.
-- **NO ENFERMO (CASE_005)**: `fatiga=2`, `dolor_muscular=1`, `mareos=1` → Diagnóstico esperado: **NO ENFERMO**
-- **ENFERMEDAD LEVE (CASE_001)**: `fiebre=6`, `congestion_nasal=8`, `dolor_garganta=7` → Diagnóstico esperado: **ENFERMEDAD LEVE**
-- **ENFERMEDAD AGUDA (CASE_003)**: `dolor_pecho=10`, `dificultad_respirar=9`, `fatiga=8` → Diagnóstico esperado: **ENFERMEDAD AGUDA**
-- **ENFERMEDAD CRÓNICA (CASE_004)**: `perdida_peso=8`, `cambios_vision=7`, `fatiga=9` → Diagnóstico esperado: **ENFERMEDAD CRÓNICA**
+- `fatiga=2`, `dolor_muscular=1`, `mareos=1` → Diagnóstico esperado: **NO ENFERMO**
+- `fiebre=3`, `dolor_cabeza=3`, `dificultad_respirar=5` → Diagnóstico esperado: **MOLESTIAS LEVES**
+- `fiebre=10`, `dolor_pecho=8`, `dificultad_respirar=7` → Diagnóstico esperado: **ENFERMEDAD LEVE**
+- `dolor_pecho=7`, `dificultad_respirar=9`, `fatiga=8` → Diagnóstico esperado: **ENFERMEDAD AGUDA**
+- `dolor_pecho=10`, `Tos=10`, `dificultad_respirar=10` → Diagnóstico esperado: **ENFERMEDAD CRÓNICA**
 
 ---
 

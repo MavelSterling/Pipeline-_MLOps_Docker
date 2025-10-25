@@ -3,10 +3,11 @@ Módulo de diagnóstico médico para el sistema de MLOps
 Desarrollado para el taller de Pipeline de MLOps + Docker
 """
 
+import logging
+from typing import Dict, List, Tuple, Union
+
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple, Union
-import logging
 
 # Configuración de logging
 logging.basicConfig(level=logging.INFO)
@@ -16,21 +17,26 @@ class MedicalDiagnosisModel:
     """
     Modelo de diagnóstico médico que simula la predicción de enfermedades
     basado en síntomas del paciente.
-    
-    Este modelo simula un sistema de ML real que podría incluir:
-    - Modelos de deep learning para enfermedades comunes
-    - Few-shot learning para enfermedades huérfanas
-    - Ensemble methods para combinación de predicciones
+
+    Flujo:
+    1. Se calcula un puntaje global de síntomas (overall_score).
+    2. Se evalúa qué patrón de enfermedad es más probable (pattern_scores).
+    3. Con ambos se estima severidad (determine_severity).
+    4. Según severidad:
+        - NO_ENFERMO / MOLESTIAS_LEVES:
+            -> No mostramos diagnóstico tipo "infección respiratoria".
+            -> Recomendaciones suaves (descanso / hidratación).
+        - ENFERMEDAD_LEVE / ENFERMEDAD_AGUDA / ENFERMEDAD_CRONICA:
+            -> Sí mostramos la condición más probable.
+            -> Recomendaciones más estrictas.
     """
-    
+
     def __init__(self):
-        """Inicializa el modelo de diagnóstico médico"""
         self.symptom_weights = self._initialize_symptom_weights()
         self.disease_patterns = self._initialize_disease_patterns()
-        self.severity_thresholds = self._initialize_severity_thresholds()
-        
+
     def _initialize_symptom_weights(self) -> Dict[str, float]:
-        """Inicializa los pesos de importancia de los síntomas"""
+        """Pesos de importancia de cada síntoma."""
         return {
             'fiebre': 0.8,
             'dolor_cabeza': 0.6,
@@ -53,9 +59,9 @@ class MedicalDiagnosisModel:
             'convulsiones': 0.95,
             'dolor_espalda': 0.5
         }
-    
+
     def _initialize_disease_patterns(self) -> Dict[str, List[str]]:
-        """Inicializa los patrones de síntomas para diferentes tipos de enfermedades"""
+        """Asociación de enfermedades ↔ lista de síntomas típicos."""
         return {
             'infeccion_respiratoria': ['fiebre', 'tos', 'congestion_nasal', 'dolor_garganta'],
             'gastroenteritis': ['nausea', 'dolor_abdominal', 'fatiga'],
@@ -71,223 +77,266 @@ class MedicalDiagnosisModel:
             'cancer': ['perdida_peso', 'fatiga', 'dolor_abdominal', 'sangrado'],
             'enfermedad_neurologica': ['confusion', 'convulsiones', 'cambios_vision', 'mareos']
         }
-    
-    def _initialize_severity_thresholds(self) -> Dict[str, Tuple[float, float]]:
-        """Inicializa los umbrales para determinar la severidad de la enfermedad"""
-        return {
-            'NO_ENFERMO': (0.0, 0.3),
-            'ENFERMEDAD_LEVE': (0.3, 0.6),
-            'ENFERMEDAD_AGUDA': (0.6, 0.8),
-            'ENFERMEDAD_CRONICA': (0.8, 1.0)
-        }
-    
+
     def calculate_symptom_score(self, symptoms: Dict[str, Union[float, int]]) -> float:
         """
-        Calcula un score basado en los síntomas del paciente
-        
-        Args:
-            symptoms: Diccionario con síntomas y su intensidad (0-10)
-            
-        Returns:
-            Score normalizado entre 0 y 1
+        Calcula un score global de síntomas ponderado por importancia.
+        Intensidad esperada: 0-10 por síntoma.
+        Devuelve número entre 0 y 1.
         """
         total_score = 0.0
         total_weight = 0.0
-        
+
         for symptom, intensity in symptoms.items():
             if symptom in self.symptom_weights:
-                # Normalizar intensidad a 0-1
-                normalized_intensity = min(max(intensity / 10.0, 0.0), 1.0)
                 weight = self.symptom_weights[symptom]
+
+                # ignorar síntomas ausentes (0)
+                if intensity is None:
+                    continue
+                if intensity <= 0:
+                    continue
+
+                # normalizamos intensidad 0-10 -> 0-1
+                normalized_intensity = min(max(float(intensity) / 10.0, 0.0), 1.0)
+
                 total_score += normalized_intensity * weight
                 total_weight += weight
-        
+
         if total_weight == 0:
+            # nadie reportó nada >0
             return 0.0
-            
+
         return total_score / total_weight
-    
+
     def detect_disease_patterns(self, symptoms: Dict[str, Union[float, int]]) -> Dict[str, float]:
         """
-        Detecta patrones de enfermedades basado en los síntomas
-        
-        Args:
-            symptoms: Diccionario con síntomas y su intensidad
-            
-        Returns:
-            Diccionario con scores para cada patrón de enfermedad
+        Score por enfermedad según qué tanto coinciden los síntomas reportados
+        con el patrón típico de esa enfermedad.
         """
         pattern_scores = {}
-        
+
         for disease, pattern_symptoms in self.disease_patterns.items():
             score = 0.0
-            matched_symptoms = 0
-            
+
             for symptom in pattern_symptoms:
                 if symptom in symptoms and symptoms[symptom] > 0:
-                    matched_symptoms += 1
-                    # Normalizar intensidad y aplicar peso
                     intensity = min(max(symptoms[symptom] / 10.0, 0.0), 1.0)
                     weight = self.symptom_weights.get(symptom, 0.5)
                     score += intensity * weight
-            
-            # Normalizar por número de síntomas en el patrón
+
+            # normalizamos por el largo del patrón esperado
             if len(pattern_symptoms) > 0:
                 pattern_scores[disease] = score / len(pattern_symptoms)
             else:
                 pattern_scores[disease] = 0.0
-                
+
         return pattern_scores
-    
-    def determine_severity(self, overall_score: float, pattern_scores: Dict[str, float]) -> str:
+
+    def determine_severity(
+        self,
+        overall_score: float,
+        pattern_scores: Dict[str, float]
+    ) -> Tuple[str, float]:
         """
-        Determina la severidad de la enfermedad basado en el score general y patrones
-        
-        Args:
-            overall_score: Score general de síntomas (0-1)
-            pattern_scores: Scores de patrones de enfermedades
-            
-        Returns:
-            Estado de la enfermedad: NO_ENFERMO, ENFERMEDAD_LEVE, ENFERMEDAD_AGUDA, ENFERMEDAD_CRONICA
+        Determina severidad clínica de forma determinista y robusta.
+
+        adjusted_score = promedio entre:
+          - gravedad global de síntomas (overall_score),
+          - el patrón de enfermedad más fuerte (max_pattern_score).
+
+        Clasificación:
+        NO_ENFERMO         adjusted_score < 0.15
+        MOLESTIAS_LEVES    0.15 - 0.30
+        ENFERMEDAD_LEVE    0.30 - 0.60
+        ENFERMEDAD_AGUDA   0.60 - 0.80
+        ENFERMEDAD_CRONICA >= 0.80
         """
-        # Ajustar score basado en patrones de enfermedades específicas
         max_pattern_score = max(pattern_scores.values()) if pattern_scores else 0.0
         adjusted_score = (overall_score + max_pattern_score) / 2.0
-        
-        # Determinar severidad basado en umbrales
-        for severity, (min_threshold, max_threshold) in self.severity_thresholds.items():
-            if min_threshold <= adjusted_score < max_threshold:
-                return severity
-        
-        # Si el score es muy alto, clasificar como crónica
-        if adjusted_score >= 1.0:
-            return 'ENFERMEDAD_CRONICA'
-        
-        return 'NO_ENFERMO'
-    
-    def predict_diagnosis(self, symptoms: Dict[str, Union[float, int]]) -> Dict[str, Union[str, float, Dict]]:
+
+        if adjusted_score < 0.15:
+            severity_selected = 'NO_ENFERMO'
+        elif adjusted_score < 0.30:
+            severity_selected = 'MOLESTIAS_LEVES'
+        elif adjusted_score < 0.60:
+            severity_selected = 'ENFERMEDAD_LEVE'
+        elif adjusted_score < 0.80:
+            severity_selected = 'ENFERMEDAD_AGUDA'
+        else:
+            severity_selected = 'ENFERMEDAD_CRONICA'
+
+        return severity_selected, adjusted_score
+
+    def predict_diagnosis(
+        self,
+        symptoms: Dict[str, Union[float, int]]
+    ) -> Dict[str, Union[str, float, Dict, bool]]:
         """
-        Función principal para predecir el diagnóstico médico
-        
-        Args:
-            symptoms: Diccionario con síntomas y su intensidad (0-10)
-            
-        Returns:
-            Diccionario con el diagnóstico completo
+        Pipeline completo:
+        - valida input
+        - calcula puntaje de síntomas
+        - detecta patrones
+        - determina severidad
+        - decide si mostrar diagnóstico específico
+        - genera recomendaciones
         """
         try:
-            # Validar entrada
+            # Validación mínima
             if not symptoms or len(symptoms) < 3:
                 raise ValueError("Se requieren al menos 3 síntomas para el diagnóstico")
-            
-            # Calcular score general de síntomas
+
+            # Score global de síntomas 
             overall_score = self.calculate_symptom_score(symptoms)
-            
-            # Detectar patrones de enfermedades
+
+            # Coincidencia con patrones de enfermedad
             pattern_scores = self.detect_disease_patterns(symptoms)
-            
-            # Determinar severidad
-            severity = self.determine_severity(overall_score, pattern_scores)
-            
-            # Encontrar la enfermedad más probable
-            most_likely_disease = max(pattern_scores.items(), key=lambda x: x[1]) if pattern_scores else ("ninguna", 0.0)
-            
-            # Generar recomendaciones
-            recommendations = self._generate_recommendations(severity, most_likely_disease[0])
-            
+
+            # Severidad clínica final
+            severity, adjusted_score = self.determine_severity(overall_score, pattern_scores)
+
+            # Enfermedad más probable (antes de filtrar)
+            most_likely_disease, most_likely_score = ("ninguna", 0.0)
+            if pattern_scores:
+                most_likely_disease, most_likely_score = max(
+                    pattern_scores.items(), key=lambda x: x[1]
+                )
+
+            # Reglas de coherencia con el front:
+            # - NO_ENFERMO / MOLESTIAS_LEVES:
+            #   * no mostramos condición específica
+            # - ENFERMEDAD_LEVE / ENFERMEDAD_AGUDA / ENFERMEDAD_CRONICA:
+            #   * sí mostramos condición probable
+            if severity in ["NO_ENFERMO", "MOLESTIAS_LEVES"]:
+                show_condition = False
+                most_likely_disease = "ninguna"
+                most_likely_score = 0.0
+            else:
+                show_condition = True
+
+            recommendations = self._generate_recommendations(severity)
+
             result = {
                 'diagnosis': severity,
-                'confidence': round(overall_score, 3),
-                'most_likely_condition': most_likely_disease[0],
-                'condition_confidence': round(most_likely_disease[1], 3),
+                'confidence': round(overall_score, 3),          # qué tan fuertes son los síntomas reportados (>0)
+                'severity_score': round(adjusted_score, 3),     # score combinado usado para clasificar
+                'most_likely_condition': most_likely_disease,   # ej. 'enfermedad_cardiaca'
+                'condition_confidence': round(most_likely_score, 3),
+                'show_condition': show_condition,             
                 'symptom_score': round(overall_score, 3),
                 'pattern_scores': {k: round(v, 3) for k, v in pattern_scores.items()},
                 'recommendations': recommendations,
                 'input_symptoms': symptoms
             }
-            
-            logger.info(f"Diagnóstico generado: {severity} con confianza {overall_score:.3f}")
+
+            logger.info(
+                f"Diagnóstico generado: {severity} | score={adjusted_score:.3f} | "
+                f"condición={most_likely_disease if show_condition else 'N/A'}"
+            )
             return result
-            
+
         except Exception as e:
             logger.error(f"Error en el diagnóstico: {str(e)}")
             return {
                 'error': str(e),
                 'diagnosis': 'ERROR',
-                'confidence': 0.0
+                'confidence': 0.0,
+                'show_condition': False,
+                'recommendations': []
             }
-    
-    def _generate_recommendations(self, severity: str, condition: str) -> List[str]:
-        """Genera recomendaciones basadas en la severidad y condición detectada"""
-        recommendations = []
-        
-        if severity == 'NO_ENFERMO':
-            recommendations = [
-                "Continuar con el monitoreo regular de la salud",
-                "Mantener hábitos de vida saludables",
-                "Consultar si aparecen nuevos síntomas"
-            ]
-        elif severity == 'ENFERMEDAD_LEVE':
-            recommendations = [
-                "Monitorear síntomas de cerca",
-                "Considerar consulta médica si los síntomas persisten",
-                "Mantener reposo y hidratación adecuada",
-                "Evitar actividades extenuantes"
-            ]
-        elif severity == 'ENFERMEDAD_AGUDA':
-            recommendations = [
-                "CONSULTA MÉDICA INMEDIATA RECOMENDADA",
-                "Buscar atención médica en las próximas 24 horas",
-                "Monitorear signos vitales regularmente",
-                "Evitar automedicación",
-                "Considerar visita a urgencias si empeora"
-            ]
-        elif severity == 'ENFERMEDAD_CRONICA':
-            recommendations = [
-                "CONSULTA MÉDICA URGENTE REQUERIDA",
-                "Buscar atención especializada inmediatamente",
-                "Posible hospitalización requerida",
-                "Monitoreo médico continuo necesario",
-                "Seguimiento con especialista recomendado"
-            ]
-        
-        return recommendations
 
-# Instancia global del modelo
+    def _generate_recommendations(self, severity: str) -> List[str]:
+        """
+        Recomendaciones basadas en severidad clínica.
+        NO_ENFERMO / MOLESTIAS_LEVES -> autocuidado básico.
+        ENFERMEDAD_LEVE -> control en casa + considerar consulta.
+        ENFERMEDAD_AGUDA -> atención médica pronto.
+        ENFERMEDAD_CRONICA -> urgente.
+        """
+        if severity == 'NO_ENFERMO':
+            return [
+                "No hay señales de gravedad actuales",
+                "Descansar adecuadamente",
+                "Mantener buena hidratación (agua, líquidos claros)",
+                "Observar si aparecen nuevos síntomas o si alguno empeora"
+            ]
+
+        if severity == 'MOLESTIAS_LEVES':
+            return [
+                "Molestias leves: reposo y buena hidratación",
+                "Dormir bien y evitar sobreesfuerzos",
+                "Usar analgésicos comunes si es necesario y no hay contraindicaciones",
+                "Consultar con un profesional si los síntomas aumentan o duran más de 48h"
+            ]
+
+        if severity == 'ENFERMEDAD_LEVE':
+            return [
+                "Síntomas compatibles con un cuadro leve",
+                "Mantener reposo y buena hidratación",
+                "Monitorear temperatura y respiración",
+                "Consultar a un profesional si persisten más de 48-72h o empeoran"
+            ]
+
+        if severity == 'ENFERMEDAD_AGUDA':
+            return [
+                "CUADRO DE CUIDADO MÉDICO RECOMENDADO",
+                "Buscar valoración médica en las próximas 24 horas",
+                "Monitorear signos vitales (fiebre alta, dificultad respiratoria)",
+                "Evitar automedicación sin indicación profesional",
+                "Acudir a urgencias si hay empeoramiento rápido"
+            ]
+
+        if severity == 'ENFERMEDAD_CRONICA':
+            return [
+                "ATENCIÓN MÉDICA URGENTE NECESARIA",
+                "Buscar atención especializada inmediatamente",
+                "Posible necesidad de intervención hospitalaria",
+                "Seguimiento médico continuo recomendado"
+            ]
+
+        # fallback
+        return [
+            "Monitorear evolución de síntomas",
+            "Buscar orientación médica ante cualquier duda"
+        ]
+
+
+# Instancia global reusable
 diagnosis_model = MedicalDiagnosisModel()
 
-def predict_medical_diagnosis(symptoms: Dict[str, Union[float, int]]) -> Dict[str, Union[str, float, Dict]]:
+def predict_medical_diagnosis(
+    symptoms: Dict[str, Union[float, int]]
+) -> Dict[str, Union[str, float, Dict]]:
     """
-    Función de conveniencia para realizar predicciones de diagnóstico médico
-    
-    Args:
-        symptoms: Diccionario con síntomas y su intensidad (0-10)
-                 Ejemplo: {'fiebre': 8, 'dolor_cabeza': 6, 'nausea': 4}
-    
-    Returns:
-        Diccionario con el diagnóstico completo
+    Wrapper público.
+    Ejemplo de entrada:
+        {'fiebre': 8, 'tos': 6, 'mareos': 2, 'fatiga': 4}
     """
     return diagnosis_model.predict_diagnosis(symptoms)
 
-# Ejemplo de uso
+
+# Ejemplo manual de prueba rápida
 if __name__ == "__main__":
-    # Ejemplo de síntomas de un paciente
     example_symptoms = {
-        'fiebre': 8,
-        'dolor_cabeza': 7,
-        'nausea': 5,
-        'fatiga': 6,
-        'dolor_pecho': 3
+        'dolor_pecho': 10,
+        'dificultad_respirar': 10,
+        'tos': 10,
+        'fatiga': 0,
+        'fiebre': 0,
+        'mareos': 0
     }
-    
-    # Realizar diagnóstico
+
     result = predict_medical_diagnosis(example_symptoms)
-    
+
     print("=== DIAGNÓSTICO MÉDICO ===")
-    print(f"Diagnóstico: {result['diagnosis']}")
-    print(f"Confianza: {result['confidence']}")
-    print(f"Condición más probable: {result['most_likely_condition']}")
-    print(f"Confianza de condición: {result['condition_confidence']}")
+    print(f"Diagnóstico / Severidad: {result['diagnosis']}")
+    print(f"Score severidad: {result['severity_score']}")
+    print(f"Confianza síntomas globales: {result['confidence']}")
+    if result['show_condition']:
+        print(f"Condición más probable: {result['most_likely_condition']}")
+        print(f"Confianza condición: {result['condition_confidence']}")
+    else:
+        print("Condición más probable: (no aplica, sin enfermedad significativa)")
     print("\nRecomendaciones:")
     for rec in result['recommendations']:
         print(f"- {rec}")
