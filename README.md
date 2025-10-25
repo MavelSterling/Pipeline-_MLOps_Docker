@@ -36,9 +36,8 @@ Desarrollar un sistema de MLOps completo para el diagnóstico médico que sea ca
 │   ├── requirements.txt              # Dependencias
 │   └── templates/                    # Plantillas HTML
 │       └── index.html               # Interfaz web
-├── data/                            # Datos de ejemplo
-│   └── sample_symptoms.json         # Casos de prueba
 ├── Dockerfile                       # Dockerfile 
+
 ```
 ---
 
