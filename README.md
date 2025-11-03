@@ -20,7 +20,7 @@
 Desarrollar un sistema de MLOps completo para el diagnóstico médico que sea capaz de predecir, dados los síntomas de un paciente, si es posible que sufra de alguna enfermedad. El sistema debe funcionar tanto para enfermedades comunes (con abundantes datos) como para enfermedades huérfanas (con datos limitados).
 
 ---
-## 📋 Estructura del ProyectoPipeline-_MLOps_Docker/
+## 📋 Estructura del Proyecto Pipeline_MLOps_Docker/
 ```
 
 
